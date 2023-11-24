@@ -1,0 +1,752 @@
+---
+title: "Exercixe 3 2540122836"
+author: "Simen Ferdinand Djamhari"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r}
+#source('create_datasets.R')
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(openintro)
+
+cars <- read.csv("https://assets.datacamp.com/production/course_1796/datasets/cars04.csv")
+comics <- read.csv("https://assets.datacamp.com/production/course_1796/datasets/comics.csv")
+life <- read.csv("https://assets.datacamp.com/production/course_1796/datasets/life_exp_raw.csv")
+```
+
+
+```{r}
+# Print the first rows of the data
+head(comics)
+```
+
+__EXPLANATION__:
+1. comics data set have 11 column (name, id, align, eye, hair, gender, gsm, alive, appearances, first_appear, and publisher)
+
+```{r}
+# Check levels of align
+comics$align <- as.factor(comics$align)
+levels(comics$align)
+```
+__EXPLANATION__:
+1. There's 4 align in comics (Bad, Good, Neutral, Reformed Criminal)
+```{r}
+# Check the levels of gender
+comics$gender <- as.factor(comics$gender)
+levels(comics$gender)
+```
+__EXPLANATION__:
+1. There's 3 gender in comics (Female, Male, Other)
+
+```{r}
+# Create a 2-way contingency table
+table(comics$align, comics$gender)
+```
+__EXPLANATION__:
+1. As we can see from the table, there are overwhelmingly more Male than Female in comics. The highest is "Bad" "Male" that has 7561 frequency
+
+```{r}
+# Print tab
+tab <- table(comics$align, comics$gender)
+tab
+```
+##Dropping levels
+```{r}
+# Remove align level
+comics <- comics %>%
+  filter(align != 'Reformed Criminals') %>%
+  droplevels()
+
+levels(comics$align)
+```
+__EXPLANATION__:
+1. Because Reformed Criminals is not that useful, it is decided to get drop.
+
+##Side-by-side barcharts
+```{r}
+# Create side-by-side barchart of gender by alignment
+ggplot(comics, aes(x = align, fill = gender)) + 
+  geom_bar(position = "dodge")
+```
+```{r}
+# Create side-by-side barchart of alignment by gender
+ggplot(comics, aes(x = gender, fill = align)) + 
+  geom_bar(positio = "dodge") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+__EXPLANATION__:
+1. The comics dataset has more males than female ,other ,and NA
+2. Male has more on Bad, Good, and Neutral align than female ,other ,and NA
+
+
+##Counts vs. proportions
+```{r}
+# simplify display format
+options(scipen = 999, digits = 3) 
+
+## create table of counts
+tbl_cnt <- table(comics$id, comics$align)
+tbl_cnt
+```
+```{r}
+# Proportional table
+# All values add up to 1
+prop.table(tbl_cnt)
+```
+__EXPLANATION__:
+1. Because "Bad" "Secret" has the most count(4493), it also has the most propotion(0.289609)
+
+```{r}
+sum(prop.table(tbl_cnt))
+```
+
+```{r}
+# All rows add up to 1
+prop.table(tbl_cnt, 1)
+```
+__EXPLANATION__:
+1. prop.table(tbl_cnt, 1) function make the proportion between each row, that's why if we see the Bad Unknown, it has the most proportion. It's because the proportion table compare it betwwen it's row. 
+```{r}
+# Coluns add up to 1
+prop.table(tbl_cnt, 2)
+```
+__EXPLANATION__:
+1. prop.table(tbl_cnt, 1) function make the proportion between each row, while prop.table(tbl_cnt, 2) make the proportion between each column. The Secret has the most proportion from Bad while Public has the most proportion on Good. 
+
+
+
+```{r}
+ggplot(comics, aes(x = id, fill = align)) + 
+  geom_bar(position = "fill") + 
+  ylab("proportion")
+```
+```{r}
+ggplot(comics, aes(x = align, fill = id)) + 
+  geom_bar(position = "fill") + 
+  ylab("proportion")
+```
+
+__EXPLANATION__:
+1. There are no Good align that is Unknown
+2. Most Good align come from public
+3. Most bad align come from Secret
+
+##Conditional proportions
+```{r}
+tab <- table(comics$align, comics$gender)
+options(scipen = 999, digits = 3) # Print fewer digits
+prop.table(tab)     # Joint proportions
+```
+```{r}
+prop.table(tab, 2)
+```
+
+## Counts vs. proportions (2)
+```{r}
+# Plot of gender by align
+ggplot(comics, aes(x = align, fill = gender)) +
+  geom_bar()
+```
+```{r}
+# Plot proportion of gender, conditional on align
+ggplot(comics, aes(x = align, fill = gender)) + 
+  geom_bar(position = "fill")
+```
+
+__EXPLANATION__:
+1. proportionally, there are more Bad Male rather than Bad Female and Bad Other
+2. proportionally, there are more Good Female rahter than Bad Male and Bad Other
+
+
+##Distribution of one variable
+```{r}
+table(comics$id)
+```
+
+```{r}
+# Simple barchart
+ggplot(comics, aes(x = id)) + geom_bar()
+```
+__EXPLANATION__:
+1. Secret has the most count on id
+
+```{r}
+ggplot(comics, aes(x = id)) + 
+  geom_bar() + 
+  facet_wrap(~align)
+```
+__EXPLANATION__:
+1. Secret has the most count on Bad
+2. Public has the most count on Good and Neutral
+
+##Marginal barchart
+
+```{r}
+# Change the order of the levels in align
+comics$align <- factor(comics$align, 
+                       levels = c("Bad", "Neutral", "Good"))
+
+# Create plot of align
+ggplot(comics, aes(x = align)) + 
+  geom_bar()
+```
+
+##Conditional barchart
+```{r}
+# Plot of alignment broken down by gender
+ggplot(comics, aes(x = align)) + 
+  geom_bar() + 
+  facet_wrap(~gender)
+```
+__EXPLANATION__:
+1. Most Male and NA in comics is Bad
+2. Most Female in comics dataset is Good
+
+##Improve piechart
+```{r}
+pies <- data.frame(flavors = as.factor(rep(c("apple", "blueberry", "boston creme", "cherry", "key lime", "pumpkin", "strawberry"), times = c(17, 14, 15, 13, 16, 12, 11))))
+
+# Put levels of flavor in descending order
+lev <- c("apple", "key lime", "boston creme", "blueberry", "cherry", "pumpkin", "strawberry")
+pies$flavor <- factor(pies$flavor, levels = lev)
+
+# Create barchart of flavor
+ggplot(pies, aes(x = flavor)) + 
+  geom_bar(fill = "chartreuse") + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+__EXPLANATION__:
+1. Apples is the highest in flavor while strawberry is the lowest
+
+##Exploring Numerical Data
+```{r}
+# A dot plot shows all the datapoints
+ggplot(cars, aes(x = weight)) + 
+  geom_dotplot(dotsize = 0.4)
+```
+
+```{r}
+# A histogram groups the points into bins so it does not get overwhelming
+ggplot(cars, aes(x = weight)) + 
+  geom_histogram(dotsize = 0.4, binwidth = 500)
+```
+```{r}
+# A density plot gives a bigger picture representation of the distribution
+# It more helpful when there is a lot of data
+ggplot(cars, aes(x = weight)) + 
+  geom_density()
+```
+```{r}
+# A boxplot is a good way to just show the summary info of the distriubtion
+ggplot(cars, aes(x = 1, y = weight)) + 
+  geom_boxplot() +
+  coord_flip()
+```
+
+__EXPLANATION__:
+1. The weight in cars dataset in concentrated at 3000 - 4000 range
+
+
+## Faceted histogram
+```{r}
+# Load package
+library(ggplot2)
+
+# Learn data structure
+str(cars)
+```
+
+```{r}
+# Create faceted histogram
+ggplot(cars, aes(x = city_mpg)) +
+  geom_histogram() +
+  facet_wrap(~ suv)
+```
+
+
+
+##Boxplots and density plots
+```{r}
+unique(cars$ncyl)
+```
+```{r}
+table(cars$ncyl)
+```
+```{r}
+# Filter cars with 4, 6, 8 cylinders
+common_cyl <- filter(cars, ncyl %in% c(4,6,8))
+
+# Create box plots of city mpg by ncyl
+ggplot(common_cyl, aes(x = as.factor(ncyl), y = city_mpg)) +
+  geom_boxplot()
+```
+__EXPLANATION__:
+1. 4 has the highest amount of count in city_cars
+
+```{r}
+# Create overlaid density plots for same data
+ggplot(common_cyl, aes(x = city_mpg, fill = as.factor(ncyl))) +
+  geom_density(alpha = .3)
+```
+
+__EXPLANATION__:
+1. 8 Has the highest density at 18, while 6 at 19 - 21, and 4 at 23- 25
+
+
+##Distribution of one variable
+#Marginal and conditional histograms
+```{r}
+# Create hist of horsepwr
+cars %>%
+  ggplot(aes(horsepwr)) +
+  geom_histogram() +
+  ggtitle("Horsepower distribution")
+```
+```{r}
+# Create hist of horsepwr for affordable cars
+cars %>% 
+  filter(msrp < 25000) %>%
+  ggplot(aes(horsepwr)) +
+  geom_histogram() +
+  xlim(c(90, 550)) +
+  ggtitle("Horsepower distribtion for msrp < 25000")
+```
+
+__EXPLANATION__:
+1. The highest horsepower car in the less expensive range has just under 250 horsepower.
+
+#Three binwidths
+```{r}
+# Create hist of horsepwr with binwidth of 3
+cars %>%
+  ggplot(aes(horsepwr)) +
+  geom_histogram(binwidth = 3) +
+  ggtitle("binwidth = 3")
+```
+```{r}
+# Create hist of horsepwr with binwidth of 30
+cars %>%
+  ggplot(aes(horsepwr)) +
+  geom_histogram(binwidth = 30) +
+  ggtitle("binwidth = 30")
+```
+```{r}
+# Create hist of horsepwr with binwidth of 60
+cars %>%
+  ggplot(aes(horsepwr)) +
+  geom_histogram(binwidth = 60) +
+  ggtitle("binwidth = 60")
+```
+
+__EXPLANATION__:
+1. From the first graph, it's a little bit hard to see where the data is concentrated at. That's wny we make the binwidth bigger to see it more clearly. From the 30 binwidth, the data concentrated at 195 - 210 whole from 60 binwidth, the data concentrated at 150 - 210
+
+##Box plots
+#Box plots for outliers
+```{r}
+# Construct box plot of msrp
+cars %>%
+  ggplot(aes(x = 1, y = msrp)) +
+  geom_boxplot()
+```
+```{r}
+# Exclude outliers from data
+cars_no_out <- cars %>%
+  filter(msrp < 100000)
+
+# Construct box plot of msrp using the reduced dataset
+cars_no_out %>%
+  ggplot(aes(x = 1, y = msrp)) +
+  geom_boxplot()
+```
+__EXPLANATION__:
+1. The outliers is above 62500
+
+# Plot selection
+```{r}
+# Create plot of city_mpg
+cars %>%
+  ggplot(aes(x = 1, y = city_mpg)) +
+  geom_boxplot()
+```
+```{r}
+cars %>%
+  ggplot(aes(city_mpg)) +
+  geom_density()
+```
+__EXPLANATION__:
+1. For city_mpg, The outliers is above 29
+2. The data is concentrated at around 18 - 19
+
+```{r}
+# Create plot of width
+cars %>%
+  ggplot(aes(x = 1, y = width)) +
+  geom_boxplot()
+```
+```{r}
+cars %>%
+  ggplot(aes(x = width)) +
+  geom_density()
+```
+__EXPLANATION__:
+1. For width, The outliers is above 78
+2. The data is concentrated at around 68 - 72
+
+##Visualization in higher dimensions
+# 3 variable plot
+```{r}
+# Facet hists using hwy mileage and ncyl
+common_cyl %>%
+  ggplot(aes(x = hwy_mpg)) +
+  geom_histogram() +
+  facet_grid(ncyl ~ suv) +
+  ggtitle("hwy_mpg by ncyl and suv")
+```
+__EXPLANATION__:
+1. Across both SUVs and non-SUVs, mileage tends to decrease as the number of cylinders increases.
+
+##Numerical Summaries
+#Measures of center
+```{r}
+head(life)
+```
+__EXPLANATION__:
+1. life dataset has 6 column (State, Country, fips, Year, Female.life.expectancy..years., Female.life.expectancy..national..years.)
+
+```{r}
+x <- head(round(life$Female.life.expectancy..years.), 11)
+x
+```
+```{r}
+sum(x)/11
+mean(x)
+
+sort(x)
+median(x)
+
+table(x)
+```
+__EXPLANATION__:
+1. The Mean from the first 11 Female.life.expectancy..years. in life dataset is 77.2
+2. The Median from the first 11 Female.life.expectancy..years. in life dataset is 77
+3. The Mode from the first 11 Female.life.expectancy..years. in life dataset is 77
+
+```{r}
+library(gapminder)
+str(gapminder)
+```
+```{r}
+# Create dataset of 2007 data
+gap2007 <- filter(gapminder, year == 2007)
+
+# Compute groupwise mean and median lifeExp
+gap2007 %>%
+  group_by(continent) %>%
+  summarize(mean(lifeExp),
+            median(lifeExp))
+```
+```{r}
+# Generate box plots of lifeExp for each continent
+gap2007 %>%
+  ggplot(aes(x = continent, y = lifeExp)) +
+  geom_boxplot()
+```
+__EXPLANATION__:
+1. Oceania Continent has the lowest count but has the biggest average of lifeExp at 80.7 while Afica Continent has the biggest count but the lowest average of lifeExp at 54.8
+1. Oceania Continent has the biggest median of lifeExp at 52.9 while Afica Continent has the lowest at 52.9
+
+
+###Measures of variability
+##We wnat to know ‘How much is the data spread out from the middle?’
+#Just looking at the data gives us a sense of this
+#But we want break it down to one number so we can compare sample distributions
+
+```{r}
+# Look at the difference between each point and the mean
+sum(x - mean(x))
+```
+##So we can square the differnce
+#But this number will keep getting bigger as you add more observations
+#We want something that is stable
+```{r}
+# Square each difference to get rid of negatives then sum
+sum((x - mean(x))^2)
+```
+#Variance
+```{r}
+sum((x - mean(x))^2)/(length(x) - 1)
+var(x)
+```
+#Standard Deviation
+```{r}
+sqrt(sum((x - mean(x))^2)/(length(x) - 1))
+sd(x)
+```
+#Inter Quartile Range
+```{r}
+summary(x)
+IQR(x)
+```
+#Range
+```{r}
+max(x)
+min(x)
+diff(range(x))
+```
+__EXPLANATION__:
+1. The Variance of x is 1.36
+2. The Standard Deviation is 1.17
+3. The Inter Quartile Range is 0.5
+4. The Maximum is 79
+5. The Minimum is 75
+6. The range is 4
+
+##Calculate spread measures
+```{r}
+str(gap2007)
+```
+```{r}
+# Compute groupwise measures of spread
+gap2007 %>%
+  group_by(continent) %>%
+  summarize(sd(lifeExp),
+            IQR(lifeExp),
+            n())
+```
+```{r}
+# Generate overlaid density plots
+gap2007 %>%
+  ggplot(aes(x = lifeExp, fill = continent)) +
+  geom_density(alpha = 0.3)
+```
+
+
+#Choose measures for center and spread
+```{r}
+# Compute stats for lifeExp in Americas
+head(gap2007)
+```
+```{r}
+gap2007 %>%
+  filter(continent == "Americas") %>%
+  summarize(mean(lifeExp),
+            sd(lifeExp))
+```
+__EXPLANATION__:
+1. The average lifeExp from Americas Continent is 73.6 years
+
+```{r}
+# Compute stats for population
+gap2007 %>%
+  summarize(median(pop),
+            IQR(pop))
+```
+
+
+##Shape and transformations
+#4 chracteristics of a distribution that are of interest:
+-center
+ already covered
+-spread or variablity
+ already covered
+-shape
+ -modality: number of prominent humps (uni, bi, multi, or uniform - no humps)
+ -skew (right, left, or symetric)
+ -Can transform to fix skew
+-outliers
+
+#Transformations
+
+```{r}
+# Create density plot of old variable
+gap2007 %>%
+  ggplot(aes(x = pop)) +
+  geom_density()
+```
+
+```{r}
+# Transform the skewed pop variable
+gap2007 <- gap2007 %>%
+  mutate(log_pop = log(pop))
+
+# Create density plot of new variable
+gap2007 %>%
+  ggplot(aes(x = log_pop)) +
+  geom_density()
+```
+#Outliers
+```{r}
+# Filter for Asia, add column indicating outliers
+str(gapminder)
+```
+```{r}
+gap_asia <- gap2007 %>%
+  filter(continent == "Asia") %>%
+  mutate(is_outlier = lifeExp < 50)
+
+# Remove outliers, create box plot of lifeExp
+gap_asia %>%
+  filter(!is_outlier) %>%
+  ggplot(aes(x = 1, y = lifeExp)) +
+  geom_boxplot()
+```
+
+
+
+###Case Study
+-Spam and num_char
+
+```{r}
+email <- read.csv(file = 'email.csv')
+```
+
+```{r}
+email %>%
+  group_by(spam) %>%
+  summarize( 
+    median(num_char),
+    IQR(num_char))
+```
+```{r}
+str(email)
+```
+
+```{r}
+table(email$spam)
+```
+```{r}
+email <- email %>%
+  mutate(spam = factor(ifelse(spam == 0, "not-spam", "spam")))
+
+# Create plot
+email %>%
+  mutate(log_num_char = log(num_char)) %>%
+  ggplot(aes(x = spam, y = log_num_char)) +
+  geom_boxplot()
+```
+__EXPLANATION__:
+1. There's is more not-spam than spam in email
+
+
+```{r}
+# Compute center and spread for exclaim_mess by spam
+email %>%
+  group_by(spam) %>%
+  summarize(
+    median(exclaim_mess),
+    IQR(exclaim_mess))
+```
+
+```{r}
+table(email$exclaim_mess)
+```
+
+```{r}
+# Create plot for spam and exclaim_mess
+email %>%
+  mutate(log_exclaim_mess = log(exclaim_mess)) %>%
+  ggplot(aes(x = log_exclaim_mess)) + 
+  geom_histogram() + 
+  facet_wrap(~ spam)
+```
+__EXPLANATION__:
+1. The exclamation is more on the not-spam side rather than the spam side
+
+
+```{r}
+table(email$image)
+```
+```{r}
+# Create plot of proportion of spam by image
+email %>%
+  mutate(has_image = image > 0) %>%
+  ggplot(aes(x = has_image, fill = spam)) +
+  geom_bar(position = "fill")
+```
+__EXPLANATION__:
+1. The email that doesn't has image is more likely to get a spam
+
+
+```{r}
+# Test if images count as attachments
+sum(email$image > email$attach)
+```
+##Answering questions with chains
+
+```{r}
+## Within non-spam emails, is the typical length of emails shorter for 
+## those that were sent to multiple people?
+email %>%
+   filter(spam == "not-spam") %>%
+   group_by(to_multiple) %>%
+   summarize(median(num_char))
+```
+__EXPLANATION__:
+1. Emails that sent to multiple people is usually shorter
+
+
+```{r}
+# Question 1
+## For emails containing the word "dollar", does the typical spam email 
+## contain a greater number of occurences of the word than the typical non-spam email?
+table(email$dollar)
+```
+
+```{r}
+email %>%
+  filter(dollar > 0) %>%
+  group_by(spam) %>%
+  summarize(median(dollar))
+```
+
+__EXPLANATION__:
+1. In the email that contain dollar, the not-spam is occur more often rather than the one who get spam
+
+```{r}
+# Question 2
+## If you encounter an email with greater than 10 occurrences of the word "dollar", 
+## is it more likely to be spam or not -spam?
+
+email %>%
+  filter(dollar > 10) %>%
+  ggplot(aes(x = spam)) +
+  geom_bar()
+```
+__EXPLANATION__:
+1. The word dollar appear in a email that's not a spam
+
+
+##What’s in a number?
+```{r}
+email$number <- as.factor(email$number)
+levels(email$number)
+```
+
+```{r}
+table(email$number)
+```
+
+```{r}
+# Reorder levels
+email$number <- factor(email$number, levels = c("none","small","big"))
+
+# Construct plot of number
+ggplot(email, aes(x = number)) +
+  geom_bar() + 
+  facet_wrap( ~ spam)
+```
+
+__EXPLANATION__:
+1. In spam and not-spam, the number that appear the most is small number in both of them.
+2. In a not-spam email, the least likely email to appear is an email that doesn't have number
+3. In a spam email, the least likely email to appear is an email that has big number
+
+

@@ -1,0 +1,41 @@
+---
+title: "exerciselab1"
+author : "2540122836_SImen Ferdinand Djamhari"
+date: '2022-03-17'
+output: html_document
+---
+
+```{r}
+library(MASS)
+attach(UScereal)
+str(UScereal)
+```
+
+#a
+
+```{r}
+par(mfrow=c(2,2))
+
+#A
+plot(x = UScereal$ protein ,
+     width = c(0, 5, 10, 15, 20, 25),
+     main ="Protein Content of Cereal",
+     xlab = "Grams per serving",
+     ylab = "")
+
+#B
+plot(UScereal$ shelf, UScereal$ mfr, las = 2, ylim = c(1, 10),
+     main = "shelf as factor",
+     xlab = "shelf", 
+     ylab = "mfr")
+
+#C
+plot(UScereal$fat, UScereal$calories, pch = 17, col = "red",
+     xlab = "fat",
+     ylab = "calories",
+     main = "Fat VS Calories")
+abline(a = 0, b = 1, lty = 2, lwd = 1)
+```
+
+
+

@@ -1,0 +1,409 @@
+---
+title: ":2540122836_FinalExam"
+author: "Simen Ferdinand Djamhari"
+date: '2022-07-15'
+output: html_document
+---
+
+link Video : https://drive.google.com/drive/folders/1Q7xIWnrvdDPOoUFVuMSbDrt7YTRzF6Bq?usp=sharing
+
+```{r}
+library(MASS)
+library(ggplot2)
+library(Hmisc)
+library(ROCR)
+library(rpart)
+library(caret)
+library(rpart.plot)
+strokeData <- read.csv("strokeData.csv", header = T, na.strings = c(""))
+```
+
+```{r}
+str(strokeData)
+```
+__EXPLANATION__:
+1. Ada 12 variabel di data ini
+2. Ada 6 data yang merupakan integer ataupun numeric yaitu id, age, hypertension, heart_disease, avg_glucose_level, dan stroke 
+3. Ada 6 data yang merupakan character yaitu gender, ever_married, work_type, residence_type, bmi, dan smoking_status
+
+```{r}
+dim(strokeData)
+```
+__EXPLANATION__:
+1. Ada 5110 baris dalam data ini
+2. Ada 12 kolom(variabel)
+
+```{r}
+head(strokeData)
+```
+```{r}
+tail(strokeData)
+```
+__EXPLANATION__:
+1. Untuk melihat 6 data teratas dan 6 data terbawah
+2. Bisa dilihat kalau variabel bmi ada yang N/A
+
+```{r}
+sapply(strokeData, function(x) sum(is.na(x)))
+```
+__EXPLANATION__:
+1. Tidak ada data yang kosong bila menggunakan function ini. bmi yang diatas merupakan character. Harus digantikan bmi menjadi numeric terlebih dahulu untuk mengetahui berapa banyak missing value yang ada di bmi
+
+```{r}
+strokeData$bmi <- as.numeric(strokeData$bmi)
+str(strokeData)
+```
+__EXPLANATION__:
+1. Menggantikan dan memastikan kalau bmi sudah menjadi numeric
+
+```{r}
+sapply(strokeData, function(x) sum(is.na(x)))
+```
+__EXPLANATION__:
+1. Setelah digantikan ke numeric, ditemukan adanya 201 missing value di bmi.
+
+```{r}
+strokeData$bmi[is.na(strokeData$bmi)] <- mean(strokeData$bmi, na.rm = T)
+sapply(strokeData, function(x) sum(is.na(x)))
+```
+__EXPLANATION__:
+1. Missing value di bmi digantikan dengan rata-rata yang ada di bmi
+
+```{r}
+sapply(strokeData, function(x) length(unique(x)))
+```
+__EXPLANATION__:
+1. Bisa dilihat kalau variabel numerik memiliki banyak jumlah yang unik seperti age dan avg_glucose_level
+2. Sedangkan variabel yang char hanya berkisar 2-4. 
+3. Bisa dilihat jumlah id sama dengan jumlah baris yang berarti tidak ad yang duplikat dari data ini
+
+```{r}
+summary(strokeData)
+```
+__EXPLANATION__:
+1. Age data yang diambil dari orang yang berumur 0 - 82 tahun
+2. avg_glucose_level berkisar dari 55.12 sampai 271.74
+
+```{r}
+quartile_1 = quantile(strokeData$avg_glucose_level, probs = 0.25)
+quartile_3 = quantile(strokeData$avg_glucose_level, probs = 0.75)
+interquartile = quartile_3 - quartile_1
+
+box_plot_rule_under <- quartile_1 - (1.5 * interquartile)
+box_plot_rule_over <- quartile_3 + (1.5 * interquartile)
+
+plot(strokeData$avg_glucose_level, main = "Boxplot Rule", xlab = "Wheel Base", ylab = "avg_glucose_level", ylim = c(-50, 400))
+
+abline(h = box_plot_rule_over,lty = 3,lwd = 4, col = "red")
+abline(h = median(strokeData$avg_glucose_level),lty = 2,lwd = 2, col = "orange")
+abline(h = box_plot_rule_under,lty = 3,lwd = 4, col = "green")
+
+legend("topright",lty = c(3,2,3), lwd = 2, legend = c("Maximum", "Median", "Minimum"), col = c("red","orange","green"), title = "Lines Meaning")
+
+```
+
+```{r}
+quartile_1 = quantile(strokeData$bmi, probs = 0.25)
+quartile_3 = quantile(strokeData$bmi, probs = 0.75)
+interquartile = quartile_3 - quartile_1
+
+box_plot_rule_under <- quartile_1 - (1.5 * interquartile)
+box_plot_rule_over <- quartile_3 + (1.5 * interquartile)
+
+plot(strokeData$bmi, main = "Boxplot Rule", xlab = "Wheel Base", ylab = "bmi", ylim = c(-10, 80))
+
+abline(h = box_plot_rule_over,lty = 3,lwd = 4, col = "red")
+abline(h = median(strokeData$bmi),lty = 2,lwd = 2, col = "orange")
+abline(h = box_plot_rule_under,lty = 3,lwd = 4, col = "green")
+
+legend("topright",lty = c(3,2,3), lwd = 2, legend = c("Maximum", "Median", "Minimum"), col = c("red","orange","green"), title = "Lines Meaning")
+
+```
+__EXPLANATION__:
+1. Adanya outlier yang terdeteksi di variabel bmi dan avg_glucose_level bila menggunakan metode boxplot.
+
+
+```{r}
+ThreeSigma <- function(x, t = 3){
+
+ mu <- mean(x, na.rm = TRUE)
+ sig <- sd(x, na.rm = TRUE)
+ if (sig == 0){
+ message("All non-missing x-values are identical")
+}
+ up <- mu + t * sig
+ down <- mu - t * sig
+ out <- list(up = up, down = down)
+ return(out)
+ }
+
+Hampel <- function(x, t = 3){
+
+ mu <- median(x, na.rm = TRUE)
+ sig <- mad(x, na.rm = TRUE)
+ if (sig == 0){
+ message("Hampel identifer implosion: MAD scale estimate is zero")
+ }
+ up <- mu + t * sig
+ down <- mu - t * sig
+ out <- list(up = up, down = down)
+ return(out)
+ }
+   
+BoxplotRule<- function(x, t = 1.5){
+
+ xL <- quantile(x, na.rm = TRUE, probs = 0.25, names = FALSE)
+ xU <- quantile(x, na.rm = TRUE, probs = 0.75, names = FALSE)
+ Q <- xU - xL
+ if (Q == 0){
+ message("Boxplot rule implosion: interquartile distance is zero")
+ }
+ up <- xU + t * Q
+ down <- xU - t * Q
+ out <- list(up = up, down = down)
+ return(out)
+}   
+
+ExtractDetails <- function(x, down, up){
+
+ outClass <- rep("N", length(x))
+ indexLo <- which(x < down)
+ indexHi <- which(x > up)
+ outClass[indexLo] <- "L"
+ outClass[indexHi] <- "U"
+ index <- union(indexLo, indexHi)
+ values <- x[index]
+ outClass <- outClass[index]
+ nOut <- length(index)
+ maxNom <- max(x[which(x <= up)])
+ minNom <- min(x[which(x >= down)])
+ outList <- list(nOut = nOut, lowLim = down,
+ upLim = up, minNom = minNom,
+ maxNom = maxNom, index = index,
+ values = values,
+ outClass = outClass)
+ return(outList)
+ }
+```
+
+
+```{r}
+FindOutliers <- function(x, t3 = 3, tH = 3, tb = 1.5){
+ threeLims <- ThreeSigma(x, t = t3)
+ HampLims <- Hampel(x, t = tH)
+ boxLims <- BoxplotRule(x, t = tb)
+
+ n <- length(x)
+ nMiss <- length(which(is.na(x)))
+
+ threeList <- ExtractDetails(x, threeLims$down, threeLims$up)
+ HampList <- ExtractDetails(x, HampLims$down, HampLims$up)
+ boxList <- ExtractDetails(x, boxLims$down, boxLims$up)
+
+ sumFrame <- data.frame(method = "ThreeSigma", n = n,
+ nMiss = nMiss, nOut = threeList$nOut,
+ lowLim = threeList$lowLim,
+ upLim = threeList$upLim,
+ minNom = threeList$minNom,
+ maxNom = threeList$maxNom)
+ upFrame <- data.frame(method = "Hampel", n = n,
+ nMiss = nMiss, nOut = HampList$nOut,
+ lowLim = HampList$lowLim,
+ upLim = HampList$upLim,
+ minNom = HampList$minNom,
+ maxNom = HampList$maxNom)
+ sumFrame <- rbind.data.frame(sumFrame, upFrame)
+ upFrame <- data.frame(method = "BoxplotRule", n = n,
+ nMiss = nMiss, nOut = boxList$nOut,
+ lowLim = boxList$lowLim,
+ upLim = boxList$upLim,
+ minNom = boxList$minNom,
+ maxNom = boxList$maxNom)
+ sumFrame <- rbind.data.frame(sumFrame, upFrame)
+
+ threeFrame <- data.frame(index = threeList$index,
+ values = threeList$values,
+ type = threeList$outClass)
+ HampFrame <- data.frame(index = HampList$index,
+ values = HampList$values,
+ type = HampList$outClass)
+ boxFrame <- data.frame(index = boxList$index,
+ values = boxList$values,
+ type = boxList$outClass)
+ outList <- list(summary = sumFrame, threeSigma = threeFrame,
+ Hampel = HampFrame, boxplotRule = boxFrame)
+ return(outList)
+}
+```
+
+```{r}
+outlier <- FindOutliers(strokeData$avg_glucose_level)
+outlier$summary
+```
+
+```{r}
+outlier <- FindOutliers(strokeData$bmi)
+outlier$summary
+```
+__EXPLANATION__:
+1. Ada sekitar 795 outlier di variabel avg_glucose_level dan ada 569 outlier di variabel bmi. Karena masih kurang 15%, outlier masih digunakan untuk proses nanti.
+
+
+```{r}
+strokeData$gender <- as.factor(strokeData$gender)
+strokeData$ever_married <- as.factor(strokeData$ever_married)
+strokeData$work_type <- as.factor(strokeData$work_type)
+strokeData$Residence_type <- as.factor(strokeData$Residence_type)
+strokeData$smoking_status <- as.factor(strokeData$smoking_status)
+```
+__EXPLANATION__:
+1. Membuat gender, ever_married, work_type, Residence_type, dan smoking_status dari character menjadi factor
+
+```{r}
+str(strokeData)
+```
+
+```{r}
+rcorr(cbind(strokeData$id, strokeData$gender, strokeData$age, strokeData$hypertension, strokeData$heart_disease, strokeData$ever_married, strokeData$work_type, strokeData$Residence_type, strokeData$avg_glucose_level, strokeData$bmi, strokeData$smoking_status, strokeData$stroke))
+```
+__EXPLANATION__:
+1. Dilihat dari P-Value, nilai korelasi 1(id), 2(gender), dan 8(Residence_type) memiliki nilai lebih dari 0,05. Oleh karena itu, id, gender, dan Residence_type dapat dihilangkan dari data.
+2. Data yang diambil hanya age, hypertension, heart_disease, ever_married, work_type, avg_glucose_level, bmi, smoking_status, dan stroke.
+
+```{r}
+strokeData <- subset(strokeData, select = c(3, 4, 5, 6, 7, 9, 10, 11, 12))
+str(strokeData)
+```
+__EXPLANATION__:
+1. Memisah variabel yang tidak digunakan dari variabel yang digunakan.
+
+
+```{r}
+ggplot(strokeData, aes(x = stroke, fill = smoking_status)) + geom_bar(position = "dodge")
+```
+```{r}
+table(strokeData$smoking_status, strokeData$stroke)
+```
+
+```{r}
+former_stroke <- sum(strokeData$smoking_status == "formerly smoked" & strokeData$stroke == 1)
+former <- sum(strokeData$smoking_status == "formerly smoked")
+percent_former_stroke <- former_stroke/former * 100
+cat("Formerly smoked people that have stroke percentage: ",percent_former_stroke, "%\n")
+
+never_stroke <- sum(strokeData$smoking_status == "never smoked" & strokeData$stroke == 1)
+never <- sum(strokeData$smoking_status == "never smoked")
+percent_never_stroke <- never_stroke/never * 100
+cat("Never smoked people that have stroke percentage: ",percent_never_stroke, "%\n")
+
+smoke_stroke <- sum(strokeData$smoking_status == "smokes" & strokeData$stroke == 1)
+smoke <- sum(strokeData$smoking_status == "smokes")
+percent_smoke_stroke <- smoke_stroke/smoke * 100
+cat("people that smoke that have stroke percentage: ",percent_smoke_stroke, "%\n")
+
+unknown_stroke <- sum(strokeData$smoking_status == "Unknown" & strokeData$stroke == 1)
+unknown <- sum(strokeData$smoking_status == "Unknown")
+percent_unknown_stroke <- unknown_stroke/unknown * 100
+cat("unkown people that smoke that have stroke percentage: ",percent_unknown_stroke, "%\n")
+```
+__EXPLANATION__:
+1. Bisa dilihat dari tabel kalau jumlah orang yang dulunya merokok yang terkena stroke ada 70 orang. Orang yang tidak pernah merokok yang terkena stroke ada 90 orang. Orang yang merokok yang terkena stroke ada 72 orang. Orang yang tidak diketahui apakah dia merokok atau tidak yang terkena stroke ada 47 orang.
+2. Walaupun banyaknya jumlah orang yang tidak pernah merokok yang terkena stroke paling banyak, bila kita lihat persentasenya, persentase orang yang dulunya merokok yang terkena stroke lebih besar daripada yang dulunya merokok. 
+3. Bisa disimpulkan dari persentase yang didapat, kalau orang yang pernah merokok akan lebih mudah terkena stroke daripada orang yang tidak merokok.
+
+```{r}
+table(strokeData$heart_disease, strokeData$stroke)
+```
+```{r}
+notHasHeartDisease_stroke <- sum(strokeData$heart_disease == 0 & strokeData$stroke == 1)
+nothasHeartD <- sum(strokeData$heart_disease == 0)
+percent_notHasHeartDisease_stroke <- notHasHeartDisease_stroke/nothasHeartD * 100
+cat("Doesn't has heart disease but has stroke percentage: ",percent_notHasHeartDisease_stroke, "%\n")
+
+HasHeartDisease_stroke <- sum(strokeData$heart_disease == 1 & strokeData$stroke == 1)
+hasHeartD <- sum(strokeData$heart_disease == 1)
+percent_HasHeartDisease_stroke <- HasHeartDisease_stroke/hasHeartD * 100
+cat("Has heart disease but has stroke percentage: ",percent_HasHeartDisease_stroke, "%\n")
+```
+__EXPLANATION__:
+1. Yang tidak mempunyai penyakit jantung yang terkena stroke sekitar 4.17%. Sedangkan orang yang mempunyai penyakit jantung yang terkena stroke sekitar 17.02%. 
+2. Bisa disimpulkan kalau orang yang mempunyai penyakit jantung akan lebih mudah terkena stroke
+
+
+```{r}
+set.seed(0)  
+training_idx = sample(1:nrow(strokeData), nrow(strokeData) * 0.8, replace=FALSE) 
+validation_idx = setdiff(1:nrow(strokeData), training_idx) 
+training_data = strokeData[training_idx,] 
+validation_data = strokeData[validation_idx,]  
+
+#80% dari total data
+dim(training_data) 
+#20% dari total data
+dim(validation_data) 
+```
+__EXPLANATION__:
+1. Membagi data menjadi 4088 baris ke dalam training_data dan 1022 baris ke dalam validation_data
+
+```{r}
+logisticModel1 <- glm(stroke~ ., family = binomial(link = "logit"), data = training_data)
+summary(logisticModel1)
+```
+__EXPLANATION__:
+1. Berdasarkan sumarry diatas, variabel age, hypertension, dan avg_glucose_level memiliki hubungan yang erat dengan stroke
+
+```{r}
+logisticModel2 <- glm(stroke ~  age + hypertension + avg_glucose_level, family = binomial(link = "logit"), data = training_data)
+summary(logisticModel2)
+```
+__EXPLANATION__:
+1. Membagi logistic model dengan hanya menggunakan variabel yang memiliki hubungan erat dengan stroke
+
+```{r}
+logistic_pred <- predict(logisticModel2, newdata = subset(validation_data, select = c(1,2,6)), type = "response")
+pd <- prediction(logistic_pred, validation_data$stroke)
+rocCurve <- performance(pd, measure = "tpr", x.measure = "fpr")
+plot(rocCurve)
+```
+__EXPLANATION__:
+1. Bisa dilihat kalau logistic regression yang dibuat mendekati nilai 1
+
+```{r}
+auc <- performance(pd, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+```{r}
+result <- ifelse(logistic_pred > 0.5, 1, 0)
+misclassificationError <- mean(result != validation_data$stroke)
+print(paste("Accuracy : ", (1 - misclassificationError)*100))
+```
+__EXPLANATION__:
+1. Dengan model ROC yang dibuat, diadaptkan AUC bernilai 0.8406232 dan akurasi bernilai 95.59%. Dengan nilai AUC dan akurasi yang didapat, dapat disimpulkan kalau logistic regression yang dibuat dapat mengklarifikasikan orang yang terkena stroke dengan akurasi yang cukup baik.
+
+
+```{r}
+DTmodel <- rpart(stroke ~ ., data = training_data, cp = 0.006)
+DTmodel
+```
+__EXPLANATION__:
+1. Membuat model decision tree dengan menggunakan rpart
+
+```{r}
+rpart.plot(DTmodel)
+```
+```{r}
+DTmodel$variable.importance 
+```
+__EXPLANATION__:
+1. Dari decision tree yang sudah dibuat, age, bmi, dan avg_glucose_level memiliki tingkat kepentingan yang paling tinggi diantara varaibel - variabel lainnya
+
+```{r}
+prediction <- predict(DTmodel, validation_data)
+cm <- table(prediction, validation_data$stroke)
+cat("Overall accuracy :", sum(diag(cm))/sum(cm) * 100)
+```
+__EXPLANATION__:
+1. Akurasi dari decision tree adalah sebesar 68.10176%. Artinya logistic regression memiliki akurasi yang lebih besar daripada menggunakan decision tree 
+
+

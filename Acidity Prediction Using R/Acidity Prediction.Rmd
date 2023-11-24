@@ -1,0 +1,274 @@
+---
+title: "AOL Data Mining"
+author: "Simen Ferdinand Djamhari_2540122836"
+date: '2022-06-18'
+output: html_document
+---
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggpubr)
+library(ggplot2)
+library(openintro)
+library(patchwork)
+library(MASS)
+library(Hmisc)
+library(car)
+library(caret)
+```
+
+```{r}
+data <- read_csv("https://raw.githubusercontent.com/stevanusfebrian/aol/main/winequality-red.csv")
+head(data)
+```
+```{r}
+dim(data)
+```
+
+
+```{r}
+str(data)
+```
+```{r}
+colSums(is.na(data))
+```
+```{r}
+sapply(data, mean, na.rm=TRUE) #mean
+```
+```{r}
+sapply(data, quantile, na.rm=TRUE) #quartiles
+```
+
+
+__EXPLORING THE DATASET__
+This dataset contains 1599 observations and 12 variables, with all 12 of them are numerical variables. There are no missing values found in the dataset.The average value of fixed acidity is 8.31, and from the quartile data we can find out that 75% of the fixed acidity data has <9.2 value.
+
+
+__CHECKING CORRELATION__
+```{r}
+rcorr(cbind(data$`fixed acidity`, data$`volatile acidity`, data$`citric acid`, data$`residual sugar`, data$chlorides, data$`free sulfur dioxide`, data$`total sulfur dioxide`, data$density, data$pH, data$sulphates, data$alcohol, data$quality))
+```
+__EXPLANATION__
+Since we want to use fixed acidity as the target variable in the model, we will exclude the variable which has small correlation to fixed acidity, leaving us to only citric acid, density, and pH. These 3 variables has small correlation to each other and also <0.05 P value to fixed acidity, which means they are statiscally significant, hence we will proceed with all of these 3 variables.
+
+```{r}
+data <- data[-c(2, 4, 5, 6, 7, 10, 11, 12)]
+head(data)
+```
+```{r}
+plot(data)
+```
+```{r}
+hist.data.frame(data)
+```
+__EXPLANATION__
+From the scatterplot we can see that fixed acidity has a linear correlation to citric acid, density, and pH, where the correlation of fixed acidity with citric acid and density are positive correlation, and the correlation of fixed acidity with pH is negative correlation.
+
+The histogram shows us that fixed acidity is not normally distributed, it is left-skewed, while density and pH have roughly bell-shaped distribution.
+
+
+```{r}
+par(mfrow = c(2,2))
+
+avg <- mean(data$`fixed acidity`)
+std <- sd(data$`fixed acidity`)
+
+bawah <- avg - 3 * std
+atas <- avg + 3 * std
+
+plot(data$`fixed acidity`, xlab = "Index", ylab = "Fixed Acidity", main = "Three-Sigma Edit Rule", las = 1, ylim = c(0, 20))
+abline(h = bawah, col = "red")
+abline(h = atas, col = "red")
+
+avg1 <- mean(data$`citric acid`)
+std1 <- sd(data$`citric acid`)
+
+bawah1 <- avg1 - 3 * std1
+atas1 <- avg1 + 3 * std1
+
+plot(data$`citric acid`, xlab = "Index", ylab = "Citric Acid", main = "Three-Sigma Edit Rule", las = 1, ylim = c(-0.5, 1.5))
+abline(h = bawah1, col = "red")
+abline(h = atas1, col = "red")
+
+avg2 <- mean(data$density)
+std2 <- sd(data$density)
+
+bawah2 <- avg2 - 3 * std2
+atas2 <- avg2 + 3 * std2
+
+plot(data$density, xlab = "Index", ylab = "Density", main = "Three-Sigma Edit Rule", las = 1, ylim = c(0.98, 1.01))
+abline(h = bawah2, col = "red")
+abline(h = atas2, col = "red")
+
+avg3 <- mean(data$pH)
+std3 <- sd(data$pH)
+
+bawah3 <- avg3 - 3 * std3
+atas3 <- avg3 + 3 * std3
+
+plot(data$pH, xlab = "Index", ylab = "pH", main = "Three-Sigma Edit Rule", las = 1, ylim = c(2, 4.5))
+abline(h = bawah3, col = "red")
+abline(h = atas3, col = "red")
+```
+
+```{r}
+ThreeSigma <- function(x, t = 3){
+
+ mu <- mean(x, na.rm = TRUE)
+ sig <- sd(x, na.rm = TRUE)
+ if (sig == 0){
+ message("All non-missing x-values are identical")
+}
+ up <- mu + t * sig
+ down <- mu - t * sig
+ out <- list(up = up, down = down)
+ return(out)
+ }
+
+Hampel <- function(x, t = 3){
+
+ mu <- median(x, na.rm = TRUE)
+ sig <- mad(x, na.rm = TRUE)
+ if (sig == 0){
+ message("Hampel identifer implosion: MAD scale estimate is zero")
+ }
+ up <- mu + t * sig
+ down <- mu - t * sig
+ out <- list(up = up, down = down)
+ return(out)
+ }
+   
+BoxplotRule<- function(x, t = 1.5){
+
+ xL <- quantile(x, na.rm = TRUE, probs = 0.25, names = FALSE)
+ xU <- quantile(x, na.rm = TRUE, probs = 0.75, names = FALSE)
+ Q <- xU - xL
+ if (Q == 0){
+ message("Boxplot rule implosion: interquartile distance is zero")
+ }
+ up <- xU + t * Q
+ down <- xU - t * Q
+ out <- list(up = up, down = down)
+ return(out)
+}   
+
+ExtractDetails <- function(x, down, up){
+
+ outClass <- rep("N", length(x))
+ indexLo <- which(x < down)
+ indexHi <- which(x > up)
+ outClass[indexLo] <- "L"
+ outClass[indexHi] <- "U"
+ index <- union(indexLo, indexHi)
+ values <- x[index]
+ outClass <- outClass[index]
+ nOut <- length(index)
+ maxNom <- max(x[which(x <= up)])
+ minNom <- min(x[which(x >= down)])
+ outList <- list(nOut = nOut, lowLim = down,
+ upLim = up, minNom = minNom,
+ maxNom = maxNom, index = index,
+ values = values,
+ outClass = outClass)
+ return(outList)
+ }
+```
+
+```{r}
+FindOutliers <- function(x, t3 = 3, tH = 3, tb = 1.5){
+ threeLims <- ThreeSigma(x, t = t3)
+ HampLims <- Hampel(x, t = tH)
+ boxLims <- BoxplotRule(x, t = tb)
+
+ n <- length(x)
+ nMiss <- length(which(is.na(x)))
+
+ threeList <- ExtractDetails(x, threeLims$down, threeLims$up)
+ HampList <- ExtractDetails(x, HampLims$down, HampLims$up)
+ boxList <- ExtractDetails(x, boxLims$down, boxLims$up)
+
+ sumFrame <- data.frame(method = "ThreeSigma", n = n,
+ nMiss = nMiss, nOut = threeList$nOut,
+ lowLim = threeList$lowLim,
+ upLim = threeList$upLim,
+ minNom = threeList$minNom,
+ maxNom = threeList$maxNom)
+ upFrame <- data.frame(method = "Hampel", n = n,
+ nMiss = nMiss, nOut = HampList$nOut,
+ lowLim = HampList$lowLim,
+ upLim = HampList$upLim,
+ minNom = HampList$minNom,
+ maxNom = HampList$maxNom)
+ sumFrame <- rbind.data.frame(sumFrame, upFrame)
+ upFrame <- data.frame(method = "BoxplotRule", n = n,
+ nMiss = nMiss, nOut = boxList$nOut,
+ lowLim = boxList$lowLim,
+ upLim = boxList$upLim,
+ minNom = boxList$minNom,
+ maxNom = boxList$maxNom)
+ sumFrame <- rbind.data.frame(sumFrame, upFrame)
+
+ threeFrame <- data.frame(index = threeList$index,
+ values = threeList$values,
+ type = threeList$outClass)
+ HampFrame <- data.frame(index = HampList$index,
+ values = HampList$values,
+ type = HampList$outClass)
+ boxFrame <- data.frame(index = boxList$index,
+ values = boxList$values,
+ type = boxList$outClass)
+ outList <- list(summary = sumFrame, threeSigma = threeFrame,
+ Hampel = HampFrame, boxplotRule = boxFrame)
+ return(outList)
+}
+```
+
+```{r}
+test <- FindOutliers(data$`fixed acidity`)
+test$summary
+```
+__EXPLANATION__
+The Three-Sigma Edit Rule chart shows that fixed acidity, citric acid, density, and pH all have outliers, but we will ignore these outliers since there are not that many of them hence the model will not be bothered by the outliers. Three-Sigma method shows that fixed acidity has 12 outliers, Hampel method 49 outliers, and Boxplot Rule 120 outliers.
+```{r}
+fit1 = lm(`fixed acidity`~., data)
+summary(fit1)
+plot(fit1, which = 1)
+```
+__EXPLANATION__
+Our first model shows that citric acid, density, and pH all have P value <0.05 so they are all statiscally significant and have strong relationship with fixed acidity, so we will use all of them on the model. Our model also has really high F-statistic which shows that our model is good.
+
+```{r}
+fit3 <- lm(log(`fixed acidity`)~. , data= data)
+summary(fit3)
+plot(fit3, which = 1)
+```
+__EXPLANATION__
+Next we try to add log to the equation of the model and our F-statistics increase to 1771, which means our model became better, so we will use this new equation as the new model.
+
+```{r}
+set.seed(1)
+training_index = createDataPartition(data$`fixed acidity`, p = 0.8, list = FALSE)
+testing_set = data[-training_index,]
+trainingset = data[training_index,]
+
+# The testing set will be used to check the accuracy of the final model
+testing_set$Predicted <- predict(fit3, testing_set)
+acidity <- testing_set$`fixed acidity`
+Predicted <- testing_set$Predicted
+Residual <- acidity - Predicted
+# Residual variable contains value from testing_set$Price subtracted by testing_set$Predicted
+actual_prediction <- data.frame(acidity, Predicted, Residual)
+cor(actual_prediction) # checking correlations
+```
+```{r}
+predict_acidity <- predict(fit3, testing_set)
+linear_model <- lm(testing_set$`fixed acidity` ~ exp(predict_acidity))
+plot(exp(predict_acidity), testing_set$`fixed acidity`, xlab="Predicted Acidity", ylab="Actual Acidity")
+abline(linear_model)
+```
+__EXPLANATION__
+The correlation of the models shows a high accuracy of 0.87 or 87% which is quite high and good. The plot also shows that the data points lies closely to the estimated regression line, which means that our regression model fits the data.
+
+__CONCLUSION__
+From our EDA and regression model we conclude that fixed acidity is highly related to citric acid, density, and pH. Citric acid and acidity relation to fixed acidity is positive correlation, which means that the higher the value of citric acid and density, the higher the value of fixed acidity, while pH relation to fixed acidity is negative correlation, so the higher the value of pH, the lesser it is for fixed acidity and vice versa. 

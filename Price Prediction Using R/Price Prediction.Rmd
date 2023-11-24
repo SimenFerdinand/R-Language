@@ -1,0 +1,383 @@
+---
+title: '2540122836_MidExam'
+author: "Simen Ferdinand Djamhari"
+date: '2022-04-02'
+output: html_document
+---
+
+**Video Link: 'https://drive.google.com/drive/u/0/folders/1HPDFFP0a6zfESQ8Na-KIHmqnVR4LCrxW'**
+
+
+##### **1. Apply the following exploratory data analysis techniques using R on `CarPrice` dataset: (25 pts.)**
+
+a.	Using `mfrow` parameter, construct a two-by-two plot array showing the concentrations of the following four attributes versus the record number in the dataset: 
+
+(1) Wheelbase, top left; 
+(2) carwidth, top right; 
+(3) fueltype, lower left; and 
+(4) CylinderNumber, lower right. 
+
+In all cases, the x-axis label should read `Record number in dataset` and the y-axis should read the attribute. Each plot should have a title spelling out the name of the element on which the attribute is based (e.g., “wheelbase” for the top-left plot).
+
+```{r}
+library(MASS)
+library(Hmisc)
+CarPrice <- read.csv(file = 'CarPrice-EvenSID.csv')
+
+par(mfrow = c(2,2))
+#describe(CarPrice)
+hist(CarPrice$WheelBase, xlab = "Record number in dataset", ylab = "Wheel Base", main = "WheelBase")
+hist(CarPrice$CarWidth, xlab = "Record number in dataset", ylab = "Car Width", main = "CarWidth")
+
+CarPrice$FuelType <- as.factor(CarPrice$FuelType) 
+plot(CarPrice$FuelType, xlab = "Record number in dataset", ylab = "Fuel Type", main = "FuelType")
+
+CarPrice$CylinderNumber <- as.factor(CarPrice$CylinderNumber)
+plot(CarPrice$CylinderNumber, xlab = "Record number in dataset", ylab = 'Cylinder Number', main = "CylinderNumber")
+```
+
+```
+__Write your explanation here:__
+1. The WheelBase is the most frequent around 90 - 105
+2. Most of the car width in the dataset is around 63 - 67
+3. Gas is being used significantly more than diesel
+4. Most of the car in the dataset have 4 number of cylinder.
+```
+
+ b.	Construct a mosaic plot showing the relationship between the variables `Carbody` and `CylinderNumber` in the `CarPrice` data frame. Does this plot suggest a relationship between these variables? Explain your answer.
+```{r}
+mosaicplot(CarBody ~ CylinderNumber, data = CarPrice, main = "", las = 2, shade = TRUE)
+```
+
+```
+__Write your explanation here:__
+1. As we can see from the plot above, there is a relationship between CarBody and CylinderNumber.
+2. Hatchback car body is the only one that has 2 and 3 amount of cylinder
+3. Sedan car body is the only one that has 12 amount of cylinder
+4. All of the car body have 4 as the most amount of cylinder in their car
+
+```
+
+c.	Compute the correlation for all attributes. Interpret the statistical findings!
+```{r}
+library(Hmisc)
+str(CarPrice)
+
+CarPrice$CarName <- as.factor(CarPrice$CarName)
+CarPrice$CarBody <- as.factor(CarPrice$CarBody)
+CarPrice$Aspiration <- as.factor(CarPrice$Aspiration)
+
+rcorr(cbind(CarPrice$CarID, CarPrice$Symboling, CarPrice$CarName, CarPrice$FuelType, CarPrice$Aspiration, CarPrice$CarBody, 
+            CarPrice$WheelBase, CarPrice$CarWidth, CarPrice$CurbWeight, CarPrice$CylinderNumber, CarPrice$HorsePower,
+            CarPrice$Citympg, CarPrice$Price))
+
+
+```
+
+```
+__Write your explanation here:__
+1 = CarID   |2 = Symboling    |3 = CarName    |4 = FuelType   |5 = Aspiration   |6 = CarBody    |7 = WheelBase   
+8 = CarWidth   |9 = CurbWeight   | 10 = CylinderNumber |11 = HorsePower    |12 = Citympg   |13 = Price
+
+As we can see from the correlation table above, there's a lot of independent variable that value is above 0,05. Because of that, we can exclude that variable. The variable that we can exclude are CarID, Symboling, FuelType, CarBody, and CylinderNumber.
+
+```
+
+##### **2. You need to compare three ways (three-sigma edit rule, Hampel identifier, boxplot rule) of detecting univariate outliers for the `wheelbase` attribute from the data frame: (20 pts.)**
+
+a.	Generate a plot for each technique and give the appropriate features (labels, line type, etc.). Based on these plots, which outlier detector seems to be giving the more reasonable results?
+
+```{r}
+library(MASS)
+three_sigma_rule_under = mean(CarPrice$WheelBase) - 3 * sd(CarPrice$WheelBase)
+three_sigma_rule_over = mean(CarPrice$WheelBase) + 3 * sd(CarPrice$WheelBase)
+
+plot(CarPrice$WheelBase, main = "Three Sigma Rule", xlab = "Wheel Base", ylab = "Wheel Base", ylim = c(80, 120))
+
+abline(h = three_sigma_rule_over,lty = 3,lwd = 4, col = "red")
+abline(h = median(CarPrice$WheelBase),lty = 2,lwd = 2, col = "orange")
+abline(h = three_sigma_rule_under,lty = 3,lwd = 4, col = "green")
+
+legend("bottomright",lty = c(3,2,3), lwd = 2, legend = c("Maximum", "Median", "Minimum"), col = c("red","orange","green"), title = "Lines Meaning")
+```
+```{r}
+library(MASS)
+hampel_identifier_under = median(CarPrice$WheelBase) - 3 * mad(CarPrice$WheelBase) 
+hampel_identifier_over = median(CarPrice$WheelBase) + 3 * mad(CarPrice$WheelBase) 
+
+plot(CarPrice$WheelBase, main = "Hampel Identifier", xlab = "Wheel Base", ylab = "Wheel Base", ylim = c(80, 125))
+
+abline(h = hampel_identifier_over,lty = 3,lwd = 4, col = "red")
+abline(h = median(CarPrice$WheelBase),lty = 2,lwd = 2, col = "orange")
+abline(h = hampel_identifier_under,lty = 3,lwd = 4, col = "green")
+
+legend("topright",lty = c(3,2,3), lwd = 2, legend = c("Maximum", "Median", "Minimum"), col = c("red","orange","green"), title = "Lines Meaning")
+```
+```{r}
+library(MASS)
+quartile_1 = quantile(CarPrice$WheelBase, probs = 0.25)
+quartile_3 = quantile(CarPrice$WheelBase, probs = 0.75)
+interquartile = quartile_3 - quartile_1
+
+box_plot_rule_under <- quartile_1 - (1.5 * interquartile)
+box_plot_rule_over <- quartile_3 + (1.5 * interquartile)
+
+plot(CarPrice$WheelBase, main = "Boxplot Rule", xlab = "Wheel Base", ylab = "Wheel Base", ylim = c(80, 125))
+
+abline(h = box_plot_rule_over,lty = 3,lwd = 4, col = "red")
+abline(h = median(CarPrice$WheelBase),lty = 2,lwd = 2, col = "orange")
+abline(h = box_plot_rule_under,lty = 3,lwd = 4, col = "green")
+
+legend("topright",lty = c(3,2,3), lwd = 2, legend = c("Maximum", "Median", "Minimum"), col = c("red","orange","green"), title = "Lines Meaning")
+
+```
+
+
+
+```
+__Write your explanation here:__
+1. From the 3 graph shown, the outlier detector that give the most reliable result is the Hample Identifier because the gap between it's lower limit and upper limit is smaller than Three Sigma Rule and Boxplot Rule, so I choose to use the Hampel Identifier
+
+```
+
+b.	How many data points are declared outliers by each of the technique? Based on this data points, which outlier detector seems to be giving the more reasonable results?
+```{r}
+ThreeSigma <- function(x, t = 3){
+
+ mu <- mean(x, na.rm = TRUE)
+ sig <- sd(x, na.rm = TRUE)
+ if (sig == 0){
+ message("All non-missing x-values are identical")
+}
+ up <- mu + t * sig
+ down <- mu - t * sig
+ out <- list(up = up, down = down)
+ return(out)
+ }
+
+Hampel <- function(x, t = 3){
+
+ mu <- median(x, na.rm = TRUE)
+ sig <- mad(x, na.rm = TRUE)
+ if (sig == 0){
+ message("Hampel identifer implosion: MAD scale estimate is zero")
+ }
+ up <- mu + t * sig
+ down <- mu - t * sig
+ out <- list(up = up, down = down)
+ return(out)
+ }
+   
+BoxplotRule<- function(x, t = 1.5){
+
+ xL <- quantile(x, na.rm = TRUE, probs = 0.25, names = FALSE)
+ xU <- quantile(x, na.rm = TRUE, probs = 0.75, names = FALSE)
+ Q <- xU - xL
+ if (Q == 0){
+ message("Boxplot rule implosion: interquartile distance is zero")
+ }
+ up <- xU + t * Q
+ down <- xU - t * Q
+ out <- list(up = up, down = down)
+ return(out)
+}   
+
+ExtractDetails <- function(x, down, up){
+
+ outClass <- rep("N", length(x))
+ indexLo <- which(x < down)
+ indexHi <- which(x > up)
+ outClass[indexLo] <- "L"
+ outClass[indexHi] <- "U"
+ index <- union(indexLo, indexHi)
+ values <- x[index]
+ outClass <- outClass[index]
+ nOut <- length(index)
+ maxNom <- max(x[which(x <= up)])
+ minNom <- min(x[which(x >= down)])
+ outList <- list(nOut = nOut, lowLim = down,
+ upLim = up, minNom = minNom,
+ maxNom = maxNom, index = index,
+ values = values,
+ outClass = outClass)
+ return(outList)
+ }
+```
+
+
+```{r}
+FindOutliers <- function(x, t3 = 3, tH = 3, tb = 1.5){
+ threeLims <- ThreeSigma(x, t = t3)
+ HampLims <- Hampel(x, t = tH)
+ boxLims <- BoxplotRule(x, t = tb)
+
+ n <- length(x)
+ nMiss <- length(which(is.na(x)))
+
+ threeList <- ExtractDetails(x, threeLims$down, threeLims$up)
+ HampList <- ExtractDetails(x, HampLims$down, HampLims$up)
+ boxList <- ExtractDetails(x, boxLims$down, boxLims$up)
+
+ sumFrame <- data.frame(method = "ThreeSigma", n = n,
+ nMiss = nMiss, nOut = threeList$nOut,
+ lowLim = threeList$lowLim,
+ upLim = threeList$upLim,
+ minNom = threeList$minNom,
+ maxNom = threeList$maxNom)
+ upFrame <- data.frame(method = "Hampel", n = n,
+ nMiss = nMiss, nOut = HampList$nOut,
+ lowLim = HampList$lowLim,
+ upLim = HampList$upLim,
+ minNom = HampList$minNom,
+ maxNom = HampList$maxNom)
+ sumFrame <- rbind.data.frame(sumFrame, upFrame)
+ upFrame <- data.frame(method = "BoxplotRule", n = n,
+ nMiss = nMiss, nOut = boxList$nOut,
+ lowLim = boxList$lowLim,
+ upLim = boxList$upLim,
+ minNom = boxList$minNom,
+ maxNom = boxList$maxNom)
+ sumFrame <- rbind.data.frame(sumFrame, upFrame)
+
+ threeFrame <- data.frame(index = threeList$index,
+ values = threeList$values,
+ type = threeList$outClass)
+ HampFrame <- data.frame(index = HampList$index,
+ values = HampList$values,
+ type = HampList$outClass)
+ boxFrame <- data.frame(index = boxList$index,
+ values = boxList$values,
+ type = boxList$outClass)
+ outList <- list(summary = sumFrame, threeSigma = threeFrame,
+ Hampel = HampFrame, boxplotRule = boxFrame)
+ return(outList)
+}
+
+```
+
+```{r}
+dim(CarPrice)
+```
+
+
+```{r}
+fullSummary <- FindOutliers(CarPrice$WheelBase)
+fullSummary$summary
+```
+
+```
+__Write your explanation here:__
+1. In the Three Sigma Rule, it can only detect 1 outliers
+2. In the Hampel Identifer, it can only detect 18 outliers
+3. In the BoxPlot Rule, it can only detect 11 outliers
+
+I think, the outliers detector that give the most reasonable result is the hample identifier because how it can detect more outliers than the others
+```
+
+##### **3. Do a comprehensive EDA on your dataset then find the best-fit linear regression model then answer the following questions: _(40 pts.)**
+
+a.	Interpret the result of your model.
+```{r}
+#str(CarPrice)
+rcorr(cbind(CarPrice$CarID, CarPrice$Symboling, CarPrice$WheelBase, CarPrice$CarWidth, CarPrice$CurbWeight, CarPrice$HorsePower,CarPrice$Citympg, CarPrice$Price))
+```
+```{r}
+pairs(~ Price + CarID + Symboling + WheelBase + CarWidth + CurbWeight + HorsePower + Citympg , data = CarPrice, main = "Car Price Data")
+```
+
+```{r}
+fit1 = lm(Price~., CarPrice[, unlist(lapply(CarPrice, is.numeric))])
+summary(fit1)
+plot(fit1, which = 1)
+```
+
+```{r}
+fit2 <- lm(Price~ CurbWeight + HorsePower, data= CarPrice)
+summary(fit2)
+plot(fit2, which = 1)
+```
+
+```{r}
+fit3 <- lm(log(Price)~ CurbWeight + HorsePower, data= CarPrice)
+summary(fit3)
+plot(fit3, which = 1)
+```
+
+```
+__Write your explanation here:__
+1. As we can see from the correlation graph, we can see that the value < 0,05 with Price is Symboling, CarWidth, CurbWeight, HorsePower, and Citympg
+2. From the linear regresion model that shown above, the one who has linear with price is CarWidth, CurbWeight, HorsePower,  nd Citympg
+3. If we see the star from the table aboce, the one who has strong correlation is CarID, CurbWeight, HorsePower, and Citympg.
+
+If we see the 3 graph shown above, we can see that the variable that has the strongest relation with price is CurbWeight and HorsePower, therefore CurbWeight and HorsePower is being use to determine the prediction
+```
+
+b.	Write down the equation of the best fitting line.
+```{r}
+library(ggpubr)
+CarPrice_graph <- ggplot(CarPrice, aes(x=CurbWeight, y=Price)) + geom_point() + geom_smooth(method="lm", col="black") + stat_regline_equation(Position = "topleft")
+CarPrice_graph
+```
+```{r}
+CarPrice_graph2 <- ggplot(CarPrice, aes(x=HorsePower, y=Price)) + geom_point() + geom_smooth(method="lm", col="black") + stat_regline_equation(Position = "topleft")
+CarPrice_graph2
+```
+
+```
+__Write your explanation here:__
+1. If we see from the first and second graph, most of the dot that represent the data and the line is close to each other. 
+2. It means that the plot is good even though it's not perfect.
+```
+
+c.	Is your model good? Why or why not?
+```{r}
+set.seed(2)  
+training_idx = sample(1:nrow(CarPrice), nrow(CarPrice)*0.8, replace=FALSE) 
+validation_idx = setdiff(1:nrow(CarPrice), training_idx) 
+training_data = CarPrice[training_idx,] 
+validation_data = CarPrice[validation_idx,]  
+
+#80% dari total data
+dim(training_data) 
+#20% dari total data
+dim(validation_data) 
+```
+
+```{r}
+m = lm(Price ~ HorsePower, training_data)
+n = lm(Price ~ CurbWeight, training_data)
+
+par(mfrow = c(2,2))
+plot(training_data$Price, predict(m, training_data), main = "Training(Horse Power)", xlab = "Price", ylab = "Predicted Price")
+abline(0,1)
+
+plot(validation_data$Price, predict(m, validation_data),main = "Validation(Horse Power)", xlab = "Price", ylab = "Predicted Price")
+abline(0,1)
+
+plot(training_data$Price, predict(n, training_data), main = "Training(CurbWeight)", xlab = "Price", ylab = "Predicted Price")
+abline(0,1)
+
+plot(validation_data$Price, predict(n, validation_data), main = "Validation(CurbWeight)", xlab = "Price", ylab = "Predicted Price")
+abline(0,1)
+```
+
+```
+__Write your explanation here:__
+Is your model good?
+1. My model for the inear regression model is pretty good because as we can see from the Training set and Validation set from the horse power variable, the data and the linear regression line is close to each other. It represent that the data is pretty good even though it's not perfect. We can also say that for the CurbWeight Variable.
+
+```
+d.	Based on your answer in c, will you deploy the model? Why or why not?
+```{r}
+validation_data$predict <- predict(fit3, validation_data)
+actualPredict <- data.frame(validation_data$Price, validation_data$predict,validation_data$Price - validation_data$predic)
+names(actualPredict) <- c("Price", "Predicted", "residuals")
+correlation_accuracy <- cor(actualPredict)
+correlation_accuracy
+```
+
+```
+__Write your explanation here:__
+1. the correlation of the models show the acuuracy is about 86%.
+2. Based on my model, I will deploy the model because the accuracy is around the acceptable range around 85%
+```
